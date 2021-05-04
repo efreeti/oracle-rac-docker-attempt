@@ -1,0 +1,11 @@
+127.0.0.1	localhost.localdomain	localhost
+
+172.16.1.150	racnode1.example.com	racnode1
+
+192.168.17.150	racnode1-priv.example.com	racnode1-priv
+
+172.16.1.160	racnode1-vip.example.com	racnode1-vip
+
+172.16.1.70	racnode-scan.example.com	racnode-scan
+
+172.16.1.15	racnode-cman1.example.com	racnode-cman1

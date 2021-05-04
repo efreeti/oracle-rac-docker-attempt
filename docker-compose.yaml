@@ -1,0 +1,118 @@
+services:
+  racnode-cman:
+    image: oracle/client-cman:19.3.0
+    hostname: racnode-cman1
+    dns_search: example.com
+    privileged: false
+    ports:
+      - 1521:1521
+    networks:
+      rac_pub1_nw:
+        ipv4_address: 172.16.1.15
+    environment:
+      DOMAIN: example.com
+      PUBLIC_IP: 172.16.1.15
+      PUBLIC_HOSTNAME: racnode-cman1
+      SCAN_NAME: racnode-scan
+      SCAN_IP: 172.16.1.70
+
+  racnode-storage:
+    image: oracle/rac-storage-server:19.3.0
+    hostname: racnode-storage
+    dns_search: example.com
+    privileged: true
+    init: true
+    cap_add:
+      - SYS_ADMIN
+      - NET_ADMIN
+    volumes:
+      - /Users/bohdan.tsymbala/work/TCS/oracle-rac/nfs-volumes:/oradata
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    tmpfs:
+      - /run
+    networks:
+      rac_priv1_nw:
+        ipv4_address: 192.168.17.25
+
+  racnode1:
+    image: oracle/database-rac:19.3.0
+    restart: always
+    hostname: racnode1
+    dns_search: example.com
+    privileged: false
+    #cpu_rt_runtime: 95000
+    ulimits:
+      rtprio: 99
+    cap_add:
+      - SYS_NICE
+      - SYS_RESOURCE
+      - NET_ADMIN
+    tmpfs:
+      - /dev/shm:rw,exec,size=4G
+      - /run
+    volumes:
+#      - /boot:/boot:ro
+      - /dev/shm
+      - /Users/bohdan.tsymbala/work/TCS/oracle-rac/rac_host_file:/etc/hosts
+      - /Users/bohdan.tsymbala/work/TCS/oracle-rac/.secrets:/run/secrets
+      - racstorage:/oradata
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    environment:
+      NODE_VIP: 172.16.1.160
+      VIP_HOSTNAME: racnode1-vip
+      PRIV_IP: 192.168.17.150
+      PRIV_HOSTNAME: racnode1-priv
+      PUBLIC_IP: 172.16.1.150
+      PUBLIC_HOSTNAME: racnode1
+      SCAN_NAME: racnode-scan
+      SCAN_IP: 172.16.1.70
+      OP_TYPE: INSTALL
+      DOMAIN: example.com
+      ASM_DISCOVERY_DIR: /oradata
+      ASM_DEVICE_LIST: /oradata/asm_disk01.img,/oradata/asm_disk02.img,/oradata/asm_disk03.img,/oradata/asm_disk04.img,/oradata/asm_disk05.img
+      CMAN_HOSTNAME: racnode-cman1
+      CMAN_IP: 172.16.1.15
+      COMMON_OS_PWD_FILE: common_os_pwdfile.enc
+      PWD_KEY: pwd.key
+    networks:
+      rac_pub1_nw:
+        ipv4_address: 172.16.1.150
+      rac_priv1_nw:
+        ipv4_address: 192.168.17.150
+
+  ractesting:
+    build:
+      context: ./testing
+    restart: always
+    hostname: ractesting
+    privileged: true
+    cap_add:
+      - CAP_SYS_ADMIN
+    healthcheck:
+      test: "exit 0"
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    networks:
+      rac_priv1_nw:
+        ipv4_address: 192.168.17.20
+
+networks:
+  rac_pub1_nw:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.1.0/24
+
+  rac_priv1_nw:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.17.0/24
+
+volumes:
+  racstorage:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=192.168.17.25,rw,resvport,bg,hard,tcp,vers=3,timeo=600,rsize=32768,wsize=32768,actimeo=0
+      device: :/oradata
